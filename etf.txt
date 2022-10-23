@@ -4,15 +4,15 @@
 // This is a rough version of the Return on Capital Employed
 
 //@version=5
-strategy('my etf',overlay = true,initial_capital = 10000000,default_qty_type = strategy.percent_of_equity,default_qty_value = 100,process_orders_on_close = true)
+strategy('my etf',pyramiding=2,overlay = true,initial_capital = 10000000,default_qty_type = strategy.percent_of_equity,default_qty_value = 100,process_orders_on_close = true)
 //start_time=timestamp("2021-01-01")
 //end_time=timestamp("2021-12-31")
 //is_in_time=time >= start_time and time<= end_time
-
+ma10=ta.sma(close,10)
 length=high-low
 k=input.float(0.5)
 
-new_length=length*k 
+new_length=length*k //range
 entry_price=close+new_length //돌파 매수 가격=시가+range*k
 
 StartYear = input(2021,"Backtest Start Year") //백테스팅 시작 년월일
@@ -32,11 +32,11 @@ testPeriod() => time >= testStart and time <= testEnd ? true : false
 upbitColor=close>open?color.red:color.blue
 plotcandle(open ,high,low,close,color=upbitColor)
 
+plot(ma10,offset = 1,linewidth = 1,color =color.green)
 plot(close,offset = 1,linewidth = 2,color = color.white) //시가 라인
 plot(entry_price, offset = 1,linewidth = 2,color=color.yellow) //매수라인
 
 if testPeriod()
-    strategy.entry("buy",strategy.long,stop=entry_price)
+    if ma10<=entry_price
+        strategy.entry("buy",strategy.long,stop=entry_price) //entry_price 뚫었을 때 buy
     strategy.close("buy",comment = "sell") //하루 차트가 마감됐을때 매도
-
-
