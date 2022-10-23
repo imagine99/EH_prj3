@@ -1,0 +1,43 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © imagine0603
+
+//@version=5
+import PineCoders/Time/3 as T //라이브러리 가져와서 T라 칭함
+
+korea_time = time+ 1000*60*60*9 //unix시간대에 9시간의 시차를 더해주는 것임
+isSell=false
+strategy("My Hallowin",overlay = true, process_orders_on_close = true)
+StartYear = input(2015,"Backtest Start Year") //백테스팅 시작 년월일
+StartMonth = input(1,"Backtest Start Month")
+StartDay = input(1,"Backtest Start Day")
+
+testStart = timestamp(StartYear,StartMonth,StartDay,0,0) //시작일 unixtime
+
+EndYear = input(2022,"Backtest End Year") //백테스팅 끝 년월일
+EndMonth = input(4,"Backtest End Month") 
+EndDay = input(30,"Backtest End Day")
+
+testEnd = timestamp(EndYear,EndMonth,EndDay,0,0)//끝 unixtime
+testPeriod() => time >= testStart and time <= testEnd ? true : false 
+//lineDate = input.time(timestamp("1 Nov"), title="Line Location")
+today_date=T.formattedDay(korea_time,"dd")
+today_day=T.formattedDate(korea_time,"E")
+
+//upbitColor=close>open?color.red:color.blue
+//plotcandle(open ,high,low,close,color=upbitColor)
+//isNewDay = timeframe.change("1M")
+if testPeriod() 
+    if month(time)==11 
+        strategy.entry("buy", strategy.long, comment="buy")
+    if month(time)==4 and today_date=="30"
+        if today_day!="Sat" and today_day!="Sun"
+            strategy.close("buy", comment="sell")
+            isSell:=true
+        else
+            isSell:=false
+
+    if month(time)==5 and isSell!=true
+        strategy.close("buy", comment="sell")
+plot(close)
+//t1 = time(timeframe.period, "0000-0000:23456")
+//bgcolor(t1 ? color.new(color.blue, 90) : na)
