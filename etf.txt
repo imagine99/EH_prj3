@@ -1,0 +1,42 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+//
+//
+// This is a rough version of the Return on Capital Employed
+
+//@version=5
+strategy('my etf',overlay = true,initial_capital = 10000000,default_qty_type = strategy.percent_of_equity,default_qty_value = 100,process_orders_on_close = true)
+//start_time=timestamp("2021-01-01")
+//end_time=timestamp("2021-12-31")
+//is_in_time=time >= start_time and time<= end_time
+
+length=high-low
+k=input.float(0.5)
+
+new_length=length*k 
+entry_price=close+new_length //돌파 매수 가격=시가+range*k
+
+StartYear = input(2021,"Backtest Start Year") //백테스팅 시작 년월일
+StartMonth = input(1,"Backtest Start Month")
+StartDay = input(1,"Backtest Start Day")
+
+testStart = timestamp(StartYear,StartMonth,StartDay,0,0) //시작일 unixtime
+
+EndYear = input(2021,"Backtest End Year") //백테스팅 끝 년월일
+EndMonth = input(12,"Backtest End Month") 
+EndDay = input(31,"Backtest End Day")
+
+testEnd = timestamp(EndYear,EndMonth,EndDay,23,59)//끝 unixtime
+
+testPeriod() => time >= testStart and time <= testEnd ? true : false 
+
+upbitColor=close>open?color.red:color.blue
+plotcandle(open ,high,low,close,color=upbitColor)
+
+plot(close,offset = 1,linewidth = 2,color = color.white) //시가 라인
+plot(entry_price, offset = 1,linewidth = 2,color=color.yellow) //매수라인
+
+if testPeriod()
+    strategy.entry("buy",strategy.long,stop=entry_price)
+    strategy.close("buy",comment = "sell") //하루 차트가 마감됐을때 매도
+
+
