@@ -1,0 +1,116 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © imagine0603
+// © author LazyBear 
+//List of all LazyBear's indicators: https://www.tradingview.com/v/4IneGo8h/
+//@version=5
+strategy("변동성돌파+sqz", overlay=true, initial_capital = 1000000, default_qty_type = strategy.percent_of_equity, default_qty_value = 100, process_orders_on_close = true) //initial capital : 자본금, qty_type:투자를 어떤 유형으로 하겠냐->percentage : %비율로 투자하겠다. value : 자본의 100%를 모두 하겠다.
+//process orders on close : 그날 시장 마감시 주문했던거 다 매도하겠다. true
+
+length_BB = input(20, title='BB Length')
+mult = input(2.0, title='BB MultFactor')
+lengthKC = input(20, title='KC Length')
+multKC = input(1.5, title='KC MultFactor')
+
+useTrueRange = input(true, title='Use TrueRange (KC)')
+
+// Calculate BB
+source = close
+basis = ta.sma(source, length_BB)
+dev = multKC * ta.stdev(source, length_BB)
+upperBB = basis + dev
+lowerBB = basis - dev
+
+// Calculate KC
+ma = ta.sma(source, lengthKC)
+range_1 = useTrueRange ? ta.tr : high - low
+rangema = ta.sma(range_1, lengthKC)
+upperKC = ma + rangema * multKC
+lowerKC = ma - rangema * multKC
+
+sqzOn = lowerBB > lowerKC and upperBB < upperKC
+sqzOff = lowerBB < lowerKC and upperBB > upperKC
+noSqz = sqzOn == false and sqzOff == false
+
+val = ta.linreg(source - math.avg(math.avg(ta.highest(high, lengthKC), ta.lowest(low, lengthKC)), ta.sma(close, lengthKC)), lengthKC, 0)
+
+iff_1 = val > nz(val[1]) ? color.lime : color.green //long 모멘텀 진입
+iff_2 = val < nz(val[1]) ? color.red : color.maroon //short 모멘텀 진입
+bcolor = val > 0 ? iff_1 : iff_2 // #val>0이면 long 모멘텀에 진입하며, <0 이라면 short
+//#4 검>회는 변동성이 터지는 것을 알고 있음.
+//히스토그램의 색깔은?>초록색은 롱 모멘텀 : 롱 디랙션(상승세)
+// 빨간색은 숏모멘텀 : 숏 디랙션 (하락세)
+//검회 + 초록색 -> 롱으로 들어가야함
+
+scolor = noSqz ? color.blue : sqzOn ? color.black : color.gray
+//#2 sqzon(sqz가 쪼그라 들었을때, 변동성이 없을때)일때, color가 검정 아니라면 회색십자가
+//아하, sqzon으로 변동성이 있느냐 없느냐 판단이 가능하구나.
+//#3 noSqz가 맞으면 scolor=blue
+
+//#4
+cond1 = (not noSqz) and (not sqzOn) //true 면, scolor == 회색십자가, 변동성이 크다
+cond2 = val>0 //true 롱 진입 모맨텀에 
+
+check1 = cond1? 1:0 // 변동성 큼 = 1, 변동성 쪼그라듬 = 0 => 우리는 변동성x 였다가 커지는 경우를 체크해야함.=> 0->1 변화량 : 1
+isVolaStart = ta.change(check1) == 1 // true -> 변동성이 없다가 커지는 경우
+
+isLong = cond2 and isVolaStart //변동성이 커지고 있는데, 롱모멘텀이라면..
+isShort = not cond2 and isVolaStart //변동성이 커지고 있는데, 숏모멘텀이라면..
+//#5 이제 언제 빼야하냐...? > 색깔로 구분, 롱 모멘텀>숏모멘텀 or 숏모멘텀>롱모멘텀
+
+check2 = cond2? 1:0 
+isMomenChange = ta.change(check2)!=0 //0이라면 변화없음인데, 0이 아님(true)라면 변화했음을 의미
+
+
+
+plot(val, color=bcolor, style=plot.style_histogram, linewidth=4)
+plot(0, color=scolor, style=plot.style_cross, linewidth=2) //#1 plot.style_cross는 십자가 차트를 그렸다는 의미.
+//color는 scolor로 넣었음. scolor는??
+
+
+
+//여기까지가 MT를 위한 squeeze지표 
+
+
+
+length = high-low //마감된 장의 고가-저가 하여 봉의 길이를 구함
+k = input.float(0.5) //노이즈 비율 , 여러값이 있으나 0.5가 가장 안정적임
+k_length = length*k //length에 k 반영, 반토막 length가 생겨남.
+
+entry_price = close + k_length // 시가+k반영leng을 넘는 라인을 돌파매수라고 하며, 이때 매수를 시작함. 당일 시가를 더해야하지만, TV는 당일 열려있는 시가 값에 접근이 불가.
+//당일 가장 시가는 전날 종가이기때문에 close로 접근한다.
+
+StartYear = input(2015,"Backtest Start Year") //백테스팅 시작 년월일
+StartMonth = input(1,"Backtest Start Month")
+StartDay = input(1,"Backtest Start Day")
+
+testStart = timestamp(StartYear,StartMonth,StartDay,0,0) //시작일 unixtime
+
+EndYear = input(2022,"Backtest End Year") //백테스팅 끝 년월일
+EndMonth = input(4,"Backtest End Month") 
+EndDay = input(30,"Backtest End Day")
+
+testEnd = timestamp(EndYear,EndMonth,EndDay,0,0)//끝 unixtime
+
+//start_time = input.time(timestamp("2020-01-01"), confirm = true) 1
+//end_time = input.time(timestamp("2022-09-30"),confirm = true) 날짜 설정하는 다른방법.2
+
+
+testPeriod() => (time >= testStart) and (time<= testEnd) ? true : false 
+
+plot(close, offset = 1, color=color.red)
+plot(entry_price, offset = 1, color = color.green)
+
+if testPeriod()
+    if isLong
+        strategy.entry("long", strategy.long, stop=entry_price,qty = 70) //entry price를 뚫었을때 매수해라
+        strategy.entry("short", strategy.short, stop=entry_price,qty = 30) //entry price를 뚫었을때 매수해라
+        //strategy.close("long" , comment = "매도")//그 날 장이 종료될 때 매도한다. 
+    
+    if isShort
+        strategy.entry("long", strategy.long, stop=entry_price,qty = 30) //entry price를 뚫었을때 매수해라
+        strategy.entry("short", strategy.short, stop=entry_price,qty = 70) //entry price를 뚫었을때 매수해라
+        //strategy.close("short" , comment = "매도")//그 날 장이 종료될 때 매도한다.
+    strategy.close_all(comment = "매도")
+
+
+   
